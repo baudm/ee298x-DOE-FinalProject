@@ -1,7 +1,8 @@
 #!/bin/sh
-import glob
+import io
 import os
 
+import lmdb
 import numpy as np
 import torch
 from torchvision import models
@@ -53,31 +54,31 @@ def resnet_features(model, x):
 
 from PIL import Image
 
-voc_root = '/home/darwin/Projects/EE298-DOE/data/VOCdevkit/VOC2012'
-ann_root = os.path.join(voc_root, 'ImageSets', 'Main')
-cats = sorted({c.split('_')[0] for c in glob.glob(os.path.join(ann_root, '*_*.txt'))})
+lsun_root = '/mnt/data/datasets/lsun'
+with open(os.path.join(lsun_root, 'category_indices.txt'), 'r') as f:
+    cats = [line.split()[0] for line in f]
 splits = ['train', 'val']
+
 
 for s in splits:
     m_feat = []
     r_feat = []
     labels = []
     for label, c in enumerate(cats, 1):
-        fname = '{}_{}.txt'.format(c, s)
-        with open(os.path.join(ann_root, fname), 'r') as f:
-            for line in f:
-                iname, included = line.split()
-                if included == '1':
-                    labels.append(label)
-                    p = os.path.join(voc_root, 'JPEGImages', iname + '.jpg')
-                    print(label, fname, p)
-                    img = T(Image.open(p)).unsqueeze(0)
-                    with torch.no_grad():
-                        x = mnasnet_features(mnasnet, img)
-                        m_feat.append(x)
-                        x = resnet_features(resnet34, img)
-                        r_feat.append(x)
-
+        dname = '{}_{}_lmdb'.format(c, s)
+        db_path = os.path.join(lsun_root, dname)
+        env = lmdb.open(db_path, map_size=1099511627776,
+                        max_readers=100, readonly=True)
+        with env.begin(write=False) as txn:
+            cursor = txn.cursor()
+            for key, val in cursor:
+                img = T(Image.open(io.BytesIO(val))).unsqueeze(0)
+                print(key, img.shape)
+                with torch.no_grad():
+                    x = mnasnet_features(mnasnet, img)
+                    m_feat.append(x)
+                    x = resnet_features(resnet34, img)
+                    r_feat.append(x)
 
     m_feat = np.concatenate(m_feat)
     r_feat = np.concatenate(r_feat)
