@@ -61,10 +61,10 @@ splits = ['train', 'val']
 
 
 for s in splits:
-    m_feat = []
-    r_feat = []
-    labels = []
     for label, c in enumerate(cats, 1):
+        m_feat = []
+        r_feat = []
+
         dname = '{}_{}_lmdb'.format(c, s)
         db_path = os.path.join(lsun_root, dname)
         env = lmdb.open(db_path, map_size=1099511627776,
@@ -80,9 +80,7 @@ for s in splits:
                     x = resnet_features(resnet34, img)
                     r_feat.append(x)
 
-    m_feat = np.concatenate(m_feat)
-    r_feat = np.concatenate(r_feat)
-    labels = np.array(labels, dtype='uint8')
-    np.save('{}_mnasnet'.format(s), m_feat)
-    np.save('{}_resnet'.format(s), r_feat)
-    np.save('{}_labels'.format(s), labels)
+        m_feat = np.concatenate(m_feat)
+        r_feat = np.concatenate(r_feat)
+        np.save('{}_{}_mnasnet'.format(c, s), m_feat)
+        np.save('{}_{}_resnet'.format(c, s), r_feat)
