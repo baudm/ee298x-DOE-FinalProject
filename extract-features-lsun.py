@@ -57,7 +57,7 @@ from PIL import Image
 lsun_root = '/mnt/data/datasets/lsun'
 with open(os.path.join(lsun_root, 'category_indices.txt'), 'r') as f:
     cats = [line.split()[0] for line in f]
-splits = ['train', 'val']
+splits = ['train']
 
 
 for s in splits:
@@ -71,15 +71,18 @@ for s in splits:
                         max_readers=100, readonly=True)
         with env.begin(write=False) as txn:
             cursor = txn.cursor()
-            for key, val in cursor:
+            for i, (key, val) in enumerate(cursor):
+                if i >= 21000:
+                    break
                 img = T(Image.open(io.BytesIO(val))).unsqueeze(0)
-                print(key, img.shape)
+                print(i, key, img.shape)
                 with torch.no_grad():
                     x = mnasnet_features(mnasnet, img)
                     m_feat.append(x)
                     x = resnet_features(resnet34, img)
                     r_feat.append(x)
-
+            cursor.close()
+        env.close()
         m_feat = np.concatenate(m_feat)
         r_feat = np.concatenate(r_feat)
         np.save('{}_{}_mnasnet'.format(c, s), m_feat)
